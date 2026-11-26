@@ -27,17 +27,12 @@ def entrenar_modelo_final():
     x_est_arr = F0_arr / k_arr
     X_teo_arr = (F0_arr / m_arr) / np.sqrt((wn_arr**2 - w_arr**2)**2 + (2 * zeta_arr * wn_arr * w_arr)**2)
 
-    def sim_xmax(m, k, c, F0, w):
-        sol = solve_ivp(
-            lambda t, y: [y[1], (F0 * np.cos(w * t) - c * y[1] - k * y[0]) / m],
-            [0, 20], [0.0, 0.0], method='RK45', t_eval=np.linspace(0, 20, 1200), rtol=1e-6, atol=1e-8
-        )
-        return np.max(np.abs(sol.y[0]))
+    # Pico máximo incluyendo sobrepaso transitorio desde reposo
+    overshoot = 1.0 + np.exp(-np.pi * zeta_arr / np.sqrt(1.0 - zeta_arr**2)) * np.exp(-2.5 * np.abs(r_arr - 1.0))
+    y_xmax = X_teo_arr * np.where(r_arr < 1.05, np.maximum(1.0, 0.65 * overshoot), 1.0)
 
-    y_xmax = np.array([sim_xmax(m_arr[i], k_arr[i], c_arr[i], F0_arr[i], w_arr[i]) for i in range(N)])
     X_train = np.column_stack([m_arr, k_arr, c_arr, F0_arr, w_arr, wn_arr, zeta_arr, r_arr, x_est_arr, X_teo_arr])
-
-    rf = RandomForestRegressor(n_estimators=150, random_state=42, n_jobs=-1)
+    rf = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=1)
     rf.fit(X_train, y_xmax)
     return rf
 
@@ -102,6 +97,9 @@ ax2.set_xlabel('Razón de frecuencias r = ω / ωₙ')
 ax2.set_ylabel('Desplazamiento máximo x_max [m]')
 ax2.legend(loc='upper right', fontsize=8.5)
 ax2.grid(True, alpha=0.3)
+
+plt.tight_layout()
+st.pyplot(fig)
 
 plt.tight_layout()
 st.pyplot(fig)
